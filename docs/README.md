@@ -3,24 +3,22 @@ layout: home
 permalink: index.html
 
 # Please update this with your repository name and title
-repository-name: eYY-4yp-project-template
-title:
+repository-name: e16-4yp-Acceleration-of-DTW-algorithm-for-real-time-nanopore-selective-sequencing-using-GPUs
+title: Acceleration of Dynamic Time Warping algorithm for real-time nanopore selective sequencing using GPUs
 ---
 
-[comment]: # "This is the standard layout for the project, but you can clean this and use your own template"
-
-# Project Title
+# Acceleration of Dynamic Time Warping algorithm for real-time nanopore selective sequencing using GPUs
 
 #### Team
 
-- eNumber, Name, [email](mailto:name@email.com)
-- eNumber, Name, [email](mailto:name@email.com)
-- eNumber, Name, [email](mailto:name@email.com)
+- E/16/089, Dissanayake N.A.D.D, [e16089@eng.pdn.ac.lk](mailto:e16089@eng.pdn.ac.lk)
+- E/16/313, Randeniya P.M.M.P, [e16313@eng.pdn.ac.lk](mailto:e16313@eng.pdn.ac.lk)
+- E/16/360, Somarathne N.C.D, [e16360@eng.pdn.ac.lk](mailto:e16360@eng.pdn.ac.lk)
 
 #### Supervisors
 
-- Name, [email](mailto:name@eng.pdn.ac.lk)
-- Name, [email](mailto:name@eng.pdn.ac.lk)
+- Prof. Roshan Ragel, [roshanr@eng.pdn.ac.lk](mailto:roshanr@eng.pdn.ac.lk)
+- Dr. Hasindu Gamarachchi, [h.gamaarachchi@garvan.org.au](mailto:h.gamaarachchi@garvan.org.au)
 
 #### Table of content
 
@@ -34,11 +32,6 @@ title:
 8. [Links](#links)
 
 ---
-
-DELETE THIS SAMPLE before publishing to GitHub Pages !!!
-This is a sample image, to show how to add images to your page. To learn more options, please refer [this](https://projects.ce.pdn.ac.lk/docs/faq/how-to-add-an-image/)
-![Sample Image](./images/sample.png)
-
 
 ## Abstract
 
@@ -61,13 +54,12 @@ This is a sample image, to show how to add images to your page. To learn more op
 <!-- 4. [Semester 8 slides](./) -->
 <!-- 5. Author 1, Author 2 and Author 3 "Research paper title" (2021). [PDF](./). -->
 
-
 ## Links
 
 [//]: # ( NOTE: EDIT THIS LINKS WITH YOUR REPO DETAILS )
 
-- [Project Repository](https://github.com/cepdnaclk/repository-name)
-- [Project Page](https://cepdnaclk.github.io/repository-name)
+- [Project Repository](https://github.com/cepdnaclk/e16-4yp-Acceleration-of-DTW-algorithm-for-real-time-nanopore-selective-sequencing-using-GPUs)
+- [Project Page](https://cepdnaclk.github.io/e16-4yp-Acceleration-of-DTW-algorithm-for-real-time-nanopore-selective-sequencing-using-GPUs/)
 - [Department of Computer Engineering](http://www.ce.pdn.ac.lk/)
 - [University of Peradeniya](https://eng.pdn.ac.lk/)
 
