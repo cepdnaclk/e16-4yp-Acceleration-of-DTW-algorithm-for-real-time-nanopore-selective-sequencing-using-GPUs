@@ -69,16 +69,15 @@ __device__ void init_aln2(int i, int32_t *cuda_aln_rid, int32_t *cuda_aln_pos_st
     char d = 0;
 
     for (int l = 0; l < SECONDARY_CAP; l++) {
-        cuda_aln_rid[i * SECONDARY_CAP + l] = rid;
-        cuda_aln_pos_st[i * SECONDARY_CAP + l] = pos;
-        cuda_aln_pos_end[i * SECONDARY_CAP + l] = pos;
-        cuda_aln_score[i * SECONDARY_CAP + l] = score;
-        cuda_aln_score2[i * SECONDARY_CAP + l] = score2;
-        cuda_aln_d[i * SECONDARY_CAP + l] = d;
-        cuda_aln_mapq[i * SECONDARY_CAP + l] = 0;
+        cuda_aln_rid[(i * SECONDARY_CAP) + l] = rid;
+        cuda_aln_pos_st[(i * SECONDARY_CAP) + l] = pos;
+        cuda_aln_pos_end[(i * SECONDARY_CAP) + l] = pos;
+        cuda_aln_score[(i * SECONDARY_CAP) + l] = score;
+        cuda_aln_score2[(i * SECONDARY_CAP) + l] = score2;
+        cuda_aln_d[(i * SECONDARY_CAP) + l] = d;
+        cuda_aln_mapq[(i * SECONDARY_CAP) + l] = 0;
         // aln_t tmp = {rid, pos, pos, score, score2, d, 0};
     }
-    // return cuda_aln;
 }
 
 __device__ void update_aln2(int i, int32_t *cuda_aln_rid, int32_t *cuda_aln_pos_st, int32_t *cuda_aln_pos_end, float *cuda_aln_score,
@@ -87,15 +86,22 @@ __device__ void update_aln2(int i, int32_t *cuda_aln_rid, int32_t *cuda_aln_pos_
 {
     int l = 0;
     for (; l < SECONDARY_CAP; l++) {
-        if (score > cuda_aln_score[i * SECONDARY_CAP + l]){
+        if (score > cuda_aln_score[i * SECONDARY_CAP + l]) {
             break;
-        }
-        else{
+        } else {
             continue;
         }
     }
 
     if (l != 0) {
+        for(int m=0; m < l-1; m++) {
+            cuda_aln_score[i * SECONDARY_CAP + m] = cuda_aln_score[i * SECONDARY_CAP + (m+1)];
+            cuda_aln_pos_end[i * SECONDARY_CAP + m] = cuda_aln_pos_end[i * SECONDARY_CAP + (m+1)];
+            cuda_aln_rid[i * SECONDARY_CAP + m] = cuda_aln_rid[i * SECONDARY_CAP + (m+1)];
+            cuda_aln_d[i * SECONDARY_CAP + m] = cuda_aln_d[i * SECONDARY_CAP + (m+1)];
+            cuda_aln_pos_st[i * SECONDARY_CAP + m] = cuda_aln_pos_st[i * SECONDARY_CAP + (m+1)];
+        }
+
         cuda_aln_score[i * SECONDARY_CAP + l - 1] = score;
         cuda_aln_pos_end[i * SECONDARY_CAP + l - 1] = pos;
         cuda_aln_rid[i * SECONDARY_CAP + l - 1] = rid;
@@ -139,16 +145,16 @@ __device__ void dtw_subsequence(float *x, float *y, int n, int m, float *cost) {
 
 __global__ void dtw_single2(core_t *core, uint64_t *cuda_len_raw_signal, size_t *cuda_et_n,
                             int64_t *cuda_qstart, int64_t *cuda_qend, float *cuda_query, int32_t *cuda_rlen, int max_qlen,
-                            int max_rlen, float *cuda_cost, float *cuda_core_ref_f, float *cuda_db_aln_score, float *cuda_db_aln_score2,
+                            int max_rlen, float *cuda_cost, float *cuda_core_ref_f, float *cuda_core_ref_rev, float *cuda_db_aln_score, float *cuda_db_aln_score2,
                             int32_t *cuda_db_aln_pos_st, int32_t *cuda_db_aln_pos_end, int32_t *cuda_db_aln_rid, char *cuda_db_aln_d,
                             uint8_t *cuda_db_aln_mapq, aln_t *cuda_aln, int32_t SIZE_NUM_REF, int32_t *cuda_ref_st_offset, int8_t core_opt_flag,
                             int32_t *cuda_aln_rid, int32_t *cuda_aln_pos_st, int32_t *cuda_aln_pos_end, float *cuda_aln_score, float *cuda_aln_score2,
-                            char *cuda_aln_d, uint8_t *cuda_aln_mapq, int32_t *cuda_indexs, int32_t *cuda_i_indexes)
+                            char *cuda_aln_d, uint8_t *cuda_aln_mapq, int32_t *cuda_query_indexes, int32_t *cuda_cost_indexes)
 {
     int i = threadIdx.x;
 
     if (i < 485) {
-        if (cuda_len_raw_signal[i] > 0 && cuda_et_n[i] > 0){   
+        if (cuda_len_raw_signal[i] > 0 && cuda_et_n[i] > 0) {   
                                                                                                                                     // some checks to see if a good read
             init_aln2(i, cuda_aln_rid, cuda_aln_pos_st, cuda_aln_pos_end, cuda_aln_score, cuda_aln_score2, cuda_aln_d, cuda_aln_mapq); // initialise a alignment struct
 
@@ -162,8 +168,8 @@ __global__ void dtw_single2(core_t *core, uint64_t *cuda_len_raw_signal, size_t 
             for (int j = 0; j < SIZE_NUM_REF; j++) {
 
                 int32_t rlen = cuda_rlen[j];
-                
-                dtw_subsequence((cuda_query + cuda_indexs[i]), &cuda_core_ref_f[j], qlen, rlen, (cuda_cost + (i*qlen*rlen)));
+                                             
+                dtw_subsequence((cuda_query + cuda_query_indexes[i]), &cuda_core_ref_f[j], qlen, rlen, (cuda_cost + cuda_cost_indexes[i]));
                 
                 for (int k = (qlen - 1) * rlen; k < qlen * rlen; k += qlen) {
                     
@@ -171,34 +177,33 @@ __global__ void dtw_single2(core_t *core, uint64_t *cuda_len_raw_signal, size_t 
                     int32_t min_pos = -1;
 
                     for (int m = 0; m < qlen && k + m < qlen * rlen; m++) {
-                        if (cuda_cost[(k + m) + (qlen * rlen * i)] < min_score) {
-                            min_score = cuda_cost[(k + m) + (rlen * qlen * i)];
+                        if (cuda_cost[(k + m) + cuda_cost_indexes[i]] < min_score) {
+                            min_score = cuda_cost[(k + m) + cuda_cost_indexes[i]];
                             min_pos = m + k;
                         }
                     }
                     update_aln2(i, cuda_aln_rid, cuda_aln_pos_st, cuda_aln_pos_end, cuda_aln_score, cuda_aln_score2, cuda_aln_d,
-                                cuda_aln_mapq, min_score, j, min_pos - (qlen - 1) * rlen, '+', (cuda_cost + max_qlen * max_rlen * j), qlen, rlen);
+                                cuda_aln_mapq, min_score, j, min_pos - (qlen - 1) * rlen, '+', (cuda_cost + cuda_cost_indexes[i]), qlen, rlen);
                 }
 
-                // if (!rna){ // if DNA we must consider the reverse strand as well
-                //     dtw_subsequence((cuda_query + (max_qlen * i)), core->ref->reverse[j], qlen, rlen, (cuda_cost + max_qlen * max_rlen * j));
+                if (!rna){ // if DNA we must consider the reverse strand as well
+                    dtw_subsequence((cuda_query + cuda_query_indexes[i]), &cuda_core_ref_rev[j], qlen, rlen, (cuda_cost + cuda_cost_indexes[i]));
 
-                //     for (int k = (qlen - 1) * rlen; k < qlen * rlen; k += qlen)
-                //     {
-                //         float min_score = INFINITY;
-                //         int32_t min_pos = -1;
-                //         for (int m = 0; m < qlen && k + m < qlen * rlen; m++)
-                //         {
-                //             if (cuda_cost[(k + m) + (max_qlen * max_rlen * j)] < min_score)
-                //             {
-                //                 min_score = cuda_cost[(k + m) + (max_qlen * max_rlen * j)];
-                //                 min_pos = m + k;
-                //             }
-                //         }
-                //         update_aln2(i, cuda_aln_rid, cuda_aln_pos_st, cuda_aln_pos_end, cuda_aln_score, cuda_aln_score2, cuda_aln_d,
-                //                     cuda_aln_mapq, min_score, j, min_pos - (qlen - 1) * rlen, '-', (cuda_cost + max_qlen * max_rlen * j), qlen, rlen);
-                //     }
-                // }
+                    for (int k = (qlen - 1) * rlen; k < qlen * rlen; k += qlen) {
+
+                        float min_score = INFINITY;
+                        int32_t min_pos = -1;
+
+                        for (int m = 0; m < qlen && k + m < qlen * rlen; m++) {
+                            if (cuda_cost[(k + m) + cuda_cost_indexes[i]] < min_score) {
+                                min_score = cuda_cost[(k + m) + cuda_cost_indexes[i]];
+                                min_pos = m + k;
+                            }
+                        }
+                        update_aln2(i, cuda_aln_rid, cuda_aln_pos_st, cuda_aln_pos_end, cuda_aln_score, cuda_aln_score2, cuda_aln_d,
+                                    cuda_aln_mapq, min_score, j, min_pos - (qlen - 1) * rlen, '-', (cuda_cost + cuda_cost_indexes[i]), qlen, rlen);
+                    }
+                }
 
                 // cudaFree(cuda_cost);
                 // CUDA_CHK();
@@ -206,8 +211,8 @@ __global__ void dtw_single2(core_t *core, uint64_t *cuda_len_raw_signal, size_t 
 
             cuda_db_aln_score[i] = cuda_aln_score[i * SECONDARY_CAP + SECONDARY_CAP - 1];
             cuda_db_aln_score2[i] = cuda_aln_score[i * SECONDARY_CAP + SECONDARY_CAP - 2];
-            cuda_db_aln_pos_st[i] = cuda_aln_d[i * SECONDARY_CAP + SECONDARY_CAP - 1] == '+' ? cuda_aln_pos_st[i * 485 + SECONDARY_CAP - 1] : cuda_rlen[cuda_aln_rid[i * 485 + SECONDARY_CAP - 1]] - cuda_aln_pos_end[i * 485 + SECONDARY_CAP - 1];
-            cuda_db_aln_pos_end[i] = cuda_aln_d[i * SECONDARY_CAP + SECONDARY_CAP - 1] == '+' ? cuda_aln_pos_end[i * 485 + SECONDARY_CAP - 1] : cuda_rlen[cuda_aln_rid[i * 485 + SECONDARY_CAP - 1]] - cuda_aln_pos_st[i * 485 + SECONDARY_CAP - 1];
+            cuda_db_aln_pos_st[i] = cuda_aln_d[i * SECONDARY_CAP + SECONDARY_CAP - 1] == '+' ? cuda_aln_pos_st[i * SECONDARY_CAP + SECONDARY_CAP - 1] : cuda_rlen[cuda_aln_rid[i * SECONDARY_CAP + SECONDARY_CAP - 1]] - cuda_aln_pos_end[i * SECONDARY_CAP + SECONDARY_CAP - 1];
+            cuda_db_aln_pos_end[i] = cuda_aln_d[i * SECONDARY_CAP + SECONDARY_CAP - 1] == '+' ? cuda_aln_pos_end[i * SECONDARY_CAP + SECONDARY_CAP - 1] : cuda_rlen[cuda_aln_rid[i * SECONDARY_CAP + SECONDARY_CAP - 1]] - cuda_aln_pos_st[i * SECONDARY_CAP + SECONDARY_CAP - 1];
 
             cuda_db_aln_pos_st[i] += cuda_ref_st_offset[cuda_aln_rid[i * SECONDARY_CAP + SECONDARY_CAP - 1]];
             cuda_db_aln_pos_end[i] += cuda_ref_st_offset[cuda_aln_rid[i * SECONDARY_CAP + SECONDARY_CAP - 1]];
@@ -290,13 +295,14 @@ void dtw_cuda_db(core_t *core, db_t *db){
     int32_t *cuda_core_ref_len;  // starting index of int32_t array
     int32_t *cuda_rlen; 
     float *cuda_core_ref_f;      // starting index of float pointer array
+    float *cuda_core_ref_rev;      // starting index of float pointer array
     int32_t *cuda_ref_st_offset; // starting index of int32_t pointer array
     float *cuda_cost;
     /******core related pointers end*****/
     
     
-    int32_t *cuda_indexs;
-    int32_t *cuda_i_indexes;
+    int32_t *cuda_query_indexes;
+    int32_t *cuda_cost_indexes;
     /********************CUDA POINTERS END*************************/
 
 
@@ -321,7 +327,6 @@ void dtw_cuda_db(core_t *core, db_t *db){
     float *core_ref_f[SIZE_NUM_REF];
     float *core_ref_rev[SIZE_NUM_REF];
 
-    int32_t i_indexes[SIZE]; // latest edit
     /******************Arrays in CPU start end******************/ 
 
     // variables
@@ -345,7 +350,7 @@ void dtw_cuda_db(core_t *core, db_t *db){
         ref_st_offset[i] = core->ref->ref_st_offset[i]; // Check whether this is equals to SIZE_NUM_REF or SIZE
         rlen[i] = core->ref->ref_lengths[i];
         core_ref_f[i] = core->ref->forward[i]; // pointers array
-        if(core->ref->reverse != NULL){
+        if(!(core->opt.flag & SIGFISH_RNA)){
             core_ref_rev[i] = core->ref->reverse[i]; 
         }
     }
@@ -354,11 +359,14 @@ void dtw_cuda_db(core_t *core, db_t *db){
     int max_rlen = max(rlen, SIZE_NUM_REF);
 
     int index = 0;
+    int cost_index = 0;
     float query[total_qlen] = {};
-    int32_t indexs[SIZE] = {};
+    int32_t query_indexes[SIZE] = {};
+    int32_t cost_indexes[SIZE] = {};
 
     for (int i = 0; i < SIZE; i++) {
-        indexs[i] = index;
+        query_indexes[i] = index;
+        cost_indexes[i] = cost_index;
         for (int j = 0; j < qlen[i]; j++) {
             if (!(core->opt.flag & SIGFISH_INV) && (core_opt_flag & SIGFISH_RNA)) {
                 query[index + qlen[i] - 1 - j] = db->et[i].event[j + qstart[i]].mean;
@@ -367,8 +375,14 @@ void dtw_cuda_db(core_t *core, db_t *db){
             }
         }
         index = index + qlen[i];
+        cost_index = cost_index + (qlen[i] * max_rlen);
+        
     }
     /*******************Assign values to Arrays end*********************/
+
+    for(int i=0; i<SIZE; i++){
+        fprintf(stderr, "%d ", cost_indexes[i]);
+    }
 
 
     /***********************Allocate memory in GPU*************************/
@@ -413,6 +427,8 @@ void dtw_cuda_db(core_t *core, db_t *db){
     CUDA_CHK();
     cudaMalloc((void **)&cuda_core_ref_f, sizeof(float) * SIZE_NUM_REF);
     CUDA_CHK();
+    cudaMalloc((void **)&cuda_core_ref_rev, sizeof(float) * SIZE_NUM_REF);
+    CUDA_CHK();
     cudaMalloc((void **)&cuda_ref_st_offset, sizeof(int32_t) * SIZE);
     CUDA_CHK();
     
@@ -435,9 +451,9 @@ void dtw_cuda_db(core_t *core, db_t *db){
     CUDA_CHK();
 
 
-    cudaMalloc((void **)&cuda_indexs, sizeof(int32_t) * SIZE);
+    cudaMalloc((void **)&cuda_query_indexes, sizeof(int32_t) * SIZE);
     CUDA_CHK();
-    cudaMalloc((void **)&cuda_i_indexes, sizeof(int32_t) * (SIZE+10));
+    cudaMalloc((void **)&cuda_cost_indexes, sizeof(int32_t) * SIZE);
     CUDA_CHK();
     /***********************Allocate memory in GPU end*************************/
 
@@ -463,9 +479,13 @@ void dtw_cuda_db(core_t *core, db_t *db){
     CUDA_CHK();
     cudaMemcpy(cuda_core_ref_f, core_ref_f, sizeof(float) * SIZE_NUM_REF, cudaMemcpyHostToDevice);
     CUDA_CHK();
+    cudaMemcpy(cuda_core_ref_rev, core_ref_rev, sizeof(float) * SIZE_NUM_REF, cudaMemcpyHostToDevice);
+    CUDA_CHK();
     cudaMemcpy(cuda_ref_st_offset, ref_st_offset, sizeof(int32_t) * SIZE_NUM_REF, cudaMemcpyHostToDevice);
     CUDA_CHK();
-    cudaMemcpy(cuda_indexs, indexs, sizeof(int32_t) * SIZE, cudaMemcpyHostToDevice);
+    cudaMemcpy(cuda_query_indexes, query_indexes, sizeof(int32_t) * SIZE, cudaMemcpyHostToDevice);
+    CUDA_CHK();
+    cudaMemcpy(cuda_cost_indexes, cost_indexes, sizeof(int32_t) * SIZE, cudaMemcpyHostToDevice);
     CUDA_CHK();
     /*********************** start copy content from main memory to cuda memory*************************/
 
@@ -473,15 +493,15 @@ void dtw_cuda_db(core_t *core, db_t *db){
     /********************************Execute cuda kernal**************************************************************/ 
     dtw_single2<<<1, SIZE>>>(cuda_core, cuda_len_raw_signal, cuda_et_n, cuda_qstart,
                              cuda_qend, cuda_query, cuda_rlen, max_qlen, max_rlen, cuda_cost,
-                             cuda_core_ref_f, cuda_db_aln_score, cuda_db_aln_score2, cuda_db_aln_pos_st,
+                             cuda_core_ref_f, cuda_core_ref_rev, cuda_db_aln_score, cuda_db_aln_score2, cuda_db_aln_pos_st,
                              cuda_db_aln_pos_end, cuda_db_aln_rid, cuda_db_aln_d, cuda_db_aln_mapq, cuda_aln, SIZE_NUM_REF, cuda_ref_st_offset, core_opt_flag,
-                             cuda_aln_rid, cuda_aln_pos_st, cuda_aln_pos_end, cuda_aln_score, cuda_aln_score2, cuda_aln_d, cuda_aln_mapq, cuda_indexs, cuda_i_indexes);
+                             cuda_aln_rid, cuda_aln_pos_st, cuda_aln_pos_end, cuda_aln_score, cuda_aln_score2, cuda_aln_d, cuda_aln_mapq, cuda_query_indexes, cuda_cost_indexes);
     CUDA_CHK();
 
     cudaDeviceSynchronize();
     CUDA_CHK();
 
-    // copy content from cuda memory to main memory
+    /********************Start copy content from cuda memory to main memory*************************/ 
     cudaMemcpy(db_aln_score, cuda_db_aln_score, sizeof(float) * SIZE, cudaMemcpyDeviceToHost);
     CUDA_CHK();
     cudaMemcpy(db_aln_score2, cuda_db_aln_score2, sizeof(float) * SIZE, cudaMemcpyDeviceToHost);
@@ -496,14 +516,10 @@ void dtw_cuda_db(core_t *core, db_t *db){
     CUDA_CHK();
     cudaMemcpy(db_aln_maqq, cuda_db_aln_mapq, sizeof(uint8_t) * SIZE, cudaMemcpyDeviceToHost);
     CUDA_CHK();
-    cudaMemcpy(db_aln_maqq, cuda_db_aln_mapq, sizeof(uint8_t) * SIZE, cudaMemcpyDeviceToHost);
-    CUDA_CHK();
+    /********************End copy content from cuda memory to main memory*************************/ 
 
-
-
-    // Asign values back to structs
-    for (int i = 0; i < SIZE; i++){
-        // fprintf(stderr, "db_aln_score -%i = %i\n",i, db_aln_maqq[i]);
+    /**************** start Asign values back to structs*********************/ 
+    for (int i = 0; i < SIZE; i++) {
         db->aln[i].score = db_aln_score[i];
         db->aln[i].score2 = db_aln_score2[i];
         db->aln[i].pos_st = db_aln_pos_st[i];
@@ -513,6 +529,7 @@ void dtw_cuda_db(core_t *core, db_t *db){
         db->aln[i].mapq = db_aln_maqq[i];
     }
 
+    /***********Free cuda memory*****************/
     cudaFree(cuda_core);
     CUDA_CHK();
     cudaFree(cuda_db);
@@ -530,6 +547,8 @@ void dtw_cuda_db(core_t *core, db_t *db){
     cudaFree(cuda_cost);
     CUDA_CHK();
     cudaFree(cuda_core_ref_f);
+    CUDA_CHK();
+    cudaFree(cuda_core_ref_rev);
     CUDA_CHK();
     // cudaFree(cuda_db_aln_pos_st);
     // CUDA_CHK();
