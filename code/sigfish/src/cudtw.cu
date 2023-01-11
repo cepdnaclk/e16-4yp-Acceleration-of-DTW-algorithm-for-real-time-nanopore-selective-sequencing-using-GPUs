@@ -76,7 +76,6 @@ __device__ void init_aln2(int i, int32_t *cuda_aln_rid, int32_t *cuda_aln_pos_st
         cuda_aln_score2[(i * SECONDARY_CAP) + l] = score2;
         cuda_aln_d[(i * SECONDARY_CAP) + l] = d;
         cuda_aln_mapq[(i * SECONDARY_CAP) + l] = 0;
-        // aln_t tmp = {rid, pos, pos, score, score2, d, 0};
     }
 }
 
@@ -132,7 +131,7 @@ __device__ void dtw_subsequence(float *x, float *y, int n, int m, float *cost) {
         cost[i * m] = fabs(x[i] - y[0]) + cost[(i - 1) * m];
     }
 
-    for (int j = 1; j < m; j++) { // subsequence variation: D(0,j) := c(x0, yj)
+    for (int j = 1; j < m; j++) {
         cost[j] = fabs(x[0] - y[j]);
     }
 
@@ -169,7 +168,7 @@ __global__ void dtw_single2(core_t *core, uint64_t *cuda_len_raw_signal, size_t 
 
                 int32_t rlen = cuda_rlen[j];
                                              
-                dtw_subsequence((cuda_query + cuda_query_indexes[i]), &cuda_core_ref_f[j], qlen, rlen, (cuda_cost + cuda_cost_indexes[i]));
+                dtw_subsequence((cuda_query + cuda_query_indexes[i]), (cuda_core_ref_f + (j * max_rlen)), qlen, rlen, (cuda_cost + cuda_cost_indexes[i]));
                 
                 for (int k = (qlen - 1) * rlen; k < qlen * rlen; k += qlen) {
                     
@@ -187,7 +186,7 @@ __global__ void dtw_single2(core_t *core, uint64_t *cuda_len_raw_signal, size_t 
                 }
 
                 if (!rna){ // if DNA we must consider the reverse strand as well
-                    dtw_subsequence((cuda_query + cuda_query_indexes[i]), &cuda_core_ref_rev[j], qlen, rlen, (cuda_cost + cuda_cost_indexes[i]));
+                    dtw_subsequence((cuda_query + cuda_query_indexes[i]), (cuda_core_ref_rev + (i * max_rlen)), qlen, rlen, (cuda_cost + cuda_cost_indexes[i]));
 
                     for (int k = (qlen - 1) * rlen; k < qlen * rlen; k += qlen) {
 
@@ -204,9 +203,6 @@ __global__ void dtw_single2(core_t *core, uint64_t *cuda_len_raw_signal, size_t 
                                     cuda_aln_mapq, min_score, j, min_pos - (qlen - 1) * rlen, '-', (cuda_cost + cuda_cost_indexes[i]), qlen, rlen);
                     }
                 }
-
-                // cudaFree(cuda_cost);
-                // CUDA_CHK();
             }
 
             cuda_db_aln_score[i] = cuda_aln_score[i * SECONDARY_CAP + SECONDARY_CAP - 1];
@@ -324,8 +320,6 @@ void dtw_cuda_db(core_t *core, db_t *db){
 
     int32_t ref_st_offset[SIZE_NUM_REF];
     int32_t rlen[SIZE_NUM_REF];
-    float *core_ref_f[SIZE_NUM_REF];
-    float *core_ref_rev[SIZE_NUM_REF];
 
     /******************Arrays in CPU start end******************/ 
 
@@ -343,20 +337,27 @@ void dtw_cuda_db(core_t *core, db_t *db){
         qlen[i] = qend[i] - qstart[i];
         total_qlen = total_qlen + qlen[i];
     }
-    fprintf(stderr, "total: %d\n",total_qlen);
-
 
     for (int i = 0; i < SIZE_NUM_REF; i++) {
         ref_st_offset[i] = core->ref->ref_st_offset[i]; // Check whether this is equals to SIZE_NUM_REF or SIZE
         rlen[i] = core->ref->ref_lengths[i];
-        core_ref_f[i] = core->ref->forward[i]; // pointers array
-        if(!(core->opt.flag & SIGFISH_RNA)){
-            core_ref_rev[i] = core->ref->reverse[i]; 
-        }
     }
 
     int max_qlen = max(qlen, SIZE);
     int max_rlen = max(rlen, SIZE_NUM_REF);
+
+    float core_ref_f[SIZE_NUM_REF * max_rlen];
+    float core_ref_rev[SIZE_NUM_REF * max_rlen];
+
+    for (int i = 0; i < SIZE_NUM_REF; i++) {
+        for (int j = 0; j < max_rlen; j++) {
+            core_ref_f[(i * max_rlen) + j] = core->ref->forward[i][j]; 
+
+            if(!(core->opt.flag & SIGFISH_RNA)){
+                core_ref_rev[(i * max_rlen) + j] = core->ref->reverse[i][j]; 
+            }
+        }
+    }
 
     int index = 0;
     int cost_index = 0;
@@ -379,10 +380,6 @@ void dtw_cuda_db(core_t *core, db_t *db){
         
     }
     /*******************Assign values to Arrays end*********************/
-
-    for(int i=0; i<SIZE; i++){
-        fprintf(stderr, "%d ", cost_indexes[i]);
-    }
 
 
     /***********************Allocate memory in GPU*************************/
@@ -425,9 +422,9 @@ void dtw_cuda_db(core_t *core, db_t *db){
     CUDA_CHK();
     cudaMalloc((void **)&cuda_rlen, sizeof(int32_t) * SIZE_NUM_REF);
     CUDA_CHK();
-    cudaMalloc((void **)&cuda_core_ref_f, sizeof(float) * SIZE_NUM_REF);
+    cudaMalloc((void **)&cuda_core_ref_f, sizeof(float) * SIZE_NUM_REF * max_rlen);
     CUDA_CHK();
-    cudaMalloc((void **)&cuda_core_ref_rev, sizeof(float) * SIZE_NUM_REF);
+    cudaMalloc((void **)&cuda_core_ref_rev, sizeof(float) * SIZE_NUM_REF * max_rlen);
     CUDA_CHK();
     cudaMalloc((void **)&cuda_ref_st_offset, sizeof(int32_t) * SIZE);
     CUDA_CHK();
@@ -477,9 +474,9 @@ void dtw_cuda_db(core_t *core, db_t *db){
 
     cudaMemcpy(cuda_rlen, rlen, sizeof(int32_t) * SIZE_NUM_REF, cudaMemcpyHostToDevice);
     CUDA_CHK();
-    cudaMemcpy(cuda_core_ref_f, core_ref_f, sizeof(float) * SIZE_NUM_REF, cudaMemcpyHostToDevice);
+    cudaMemcpy(cuda_core_ref_f, core_ref_f, sizeof(float) * SIZE_NUM_REF * max_rlen, cudaMemcpyHostToDevice);
     CUDA_CHK();
-    cudaMemcpy(cuda_core_ref_rev, core_ref_rev, sizeof(float) * SIZE_NUM_REF, cudaMemcpyHostToDevice);
+    cudaMemcpy(cuda_core_ref_rev, core_ref_rev, sizeof(float) * SIZE_NUM_REF * max_rlen, cudaMemcpyHostToDevice);
     CUDA_CHK();
     cudaMemcpy(cuda_ref_st_offset, ref_st_offset, sizeof(int32_t) * SIZE_NUM_REF, cudaMemcpyHostToDevice);
     CUDA_CHK();
@@ -550,20 +547,18 @@ void dtw_cuda_db(core_t *core, db_t *db){
     CUDA_CHK();
     cudaFree(cuda_core_ref_rev);
     CUDA_CHK();
-    // cudaFree(cuda_db_aln_pos_st);
-    // CUDA_CHK();
-    // cudaFree(cuda_db_aln_pos_end);
-    // CUDA_CHK();
-    // cudaFree(cuda_db_aln_rid);
-    // CUDA_CHK();
-    // cudaFree(cuda_db_aln_d);
-    // CUDA_CHK();
-    // cudaFree(cuda_db_aln_score);
-    // CUDA_CHK();
-    // cudaFree(cuda_db_aln_score2);
-    // CUDA_CHK();
-    // cudaFree(cuda_db_aln_pos_st);
-    // CUDA_CHK();
+    cudaFree(cuda_db_aln_pos_st);
+    CUDA_CHK();
+    cudaFree(cuda_db_aln_pos_end);
+    CUDA_CHK();
+    cudaFree(cuda_db_aln_rid);
+    CUDA_CHK();
+    cudaFree(cuda_db_aln_d);
+    CUDA_CHK();
+    cudaFree(cuda_db_aln_score);
+    CUDA_CHK();
+    cudaFree(cuda_db_aln_score2);
+    CUDA_CHK();
     cudaFree(cuda_aln_pos_end);
     CUDA_CHK();
     cudaFree(cuda_aln_rid);
