@@ -132,6 +132,7 @@ pattern (voice signal) in this example has a unique waveform.
 The input waveform is compared to each pattern to determine
 the similarities between the patterns and the existing voice
 signals.
+
 2) Data mining: Clustering and classification are key com-
 ponents of data mining. The accuracy of the distance measur-
 ing method directly affects the performance of the clustering
@@ -143,18 +144,21 @@ According to the community, DTW still has room for improve-
 ment in terms of both performance and accuracy, and there are
 already certain optimizations that are wonderful additions to
 the traditional DTW.
+
 3) Signature verification: Signatures are unique types of
 handwriting that include intricate geometric designs and words
 and letters that may not be easily recognized. If two signatures
 have more differences than matches, it will be determined
 that one was copied or written incorrectly when it comes to
 signature verification.
+
 4) Word recognition: Since its release, the DTW algorithm
 has gained popularity for speech recognition applications.
 Subsequently, word recognition applications for the DTW
 method were found to be feasible. Isolated, linked, and discrete
 word recognition are some of the numerous uses for word
 recognition.
+
 5) Nanopore Sequencing: By reading individual nu-
 cleotides when a DNA strand travels through a nanopore,
 nanopore sequencing is a sort of DNA sequencing technique.
