@@ -782,7 +782,7 @@ We have displayed several findings using various optimisation procedures in the 
 
 As part of future work, the DTW calculation segment will be parallelised. Most of the time-consuming activities take place there. As a result, we will give priority to paralysing this section. To calculate the DTW matrix, we'll use the diagonal approach.
 
-	![WhatsApp Image 2023-02-22 at 03 13 37](https://user-images.githubusercontent.com/59797810/220469038-6a431c81-a6d9-4ddb-b71e-ac3b3348594a.jpg)
+	
 
 
 ## Conclusion
