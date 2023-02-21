@@ -738,6 +738,66 @@ As discussed before, GPU implementation consists of several stages. We will disc
 
 ## Results and Analysis
 
+This section demonstrates the DTW performances for Nanopore selective sequencing for different optimisation strategies with various hardware configurations. We used the following hardware platforms.
+  Platform 1:
+    CPU: Intel(R) Core(TM) i7-1065G7 CPU @ 1.30GHz
+    GPU: NVIDIA GeForce MX330 with 384 cores
+  Platform 2:
+    CPU: 
+    GPU: NVIDIA Tesla K40 with 2880 cores
+
+The CPU code described in the section on existing code runs exclusively in the CPU in a sequential manner. It does not use a parallel mechanism. The following table illustrates how long it takes to calculate DTW on each platform.
+
+                              Time (s)
+                  Platform 1    30 
+                  Platform 2    23 
+
+The time shown above is the total amount of time DTW has spent on all reads. Our ultimate objective was to lower this time by using various optimisation approaches. Thus we preserved those times as the reference times for each platform.
+
+As described in the methodology section, we transformed the DTW computation phase from C code to CUDA. At first, we just used one block for the entire data set's reads. The data set contains 485 readings, and 485 concurrent threads were used to match each read with the reference signal. The parallelisation did not improve performance when compared to CPU code. The time required by each of the aforementioned platforms is shown in the table below. 
+		
+
+
+  Time (s)
+Platform 1
+ ~256 
+Platform 2
+ ~981 
+
+
+As compared to the CPU code time, we can see that the amount of time has significantly increased. Although the process had been parallelised, the GPU used only one core to perform the program because we utilised only one block. CPU cores are more powerful than GPU cores. As a result, we failed to improve performance by utilising the aforementioned strategy.
+
+Then, for each read, we used one block. As part of our second technique, we parallelised the operation and utilised 485 blocks. As compared to the first technique, it demonstrated a considerable improvement, but not when compared to the CPU code.
+
+
+
+  Time (s)
+Platform 1
+ ~218 
+Platform 2
+ ~158 
+
+
+We used one block for each read, which is what caused the improvement to be so noticeable when compared to the first technique. As a result, those blocks are dispersed across numerous GPU cores, yet sequential matching of each read with the reference signal continues to run inside of a single thread. With our third optimising technique, we attempted to parallel that action. The third strategy's calculation time is displayed in the table below.
+			
+
+
+  Time (s)
+Platform 1
+~ 281 
+Platform 2
+~ 252 
+
+
+When compared to the second technique, there was no improvement with this one. Performance was not improved by invoking one CUDA kernel inside another CUDA kernel.
+
+
+## Future work
+
+We have displayed several findings using various optimisation procedures in the results section. The best optimised times we obtained for platforms 1 and 2 were 218 and 158 seconds, respectively. The outcome was different from what we had previously anticipated.
+
+As part of future work, the DTW calculation segment will be parallelised. Most of the time-consuming activities take place there. As a result, we will give priority to paralysing this section. To calculate the DTW matrix, we'll use the diagonal approach.
+
 
 ## Conclusion
 
