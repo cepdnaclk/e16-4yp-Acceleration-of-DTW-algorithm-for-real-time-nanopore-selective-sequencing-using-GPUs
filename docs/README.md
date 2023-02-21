@@ -91,7 +91,7 @@ discuss this more in the latter part of the paper.
 The mathematical procedure Dynamic Time Warping
 (DTW) was developed in the 1960s and examined the align-
 ments and similarities between two-time series. The computa-
-tional difficulty is O(n2). Because sequences could be analyzed
+tional difficulty is O(n^2). Because sequences could be analyzed
 despite shifts and time-series distortions, the technique proved
 to be useful. In its early phases, it was employed for pur-
 poses of voice recognition and pattern identification. Later on,
@@ -309,6 +309,7 @@ reads was mapped to the E. coli K12 reference genome
 using a 3.0-GHz core to calculate the accuracy. With these,
 UNCALLED is more suitable for long sequence readings,
 eliminating the high computational demands in other methods.
+
 2) Real-Time Mapping of Raw Signals with Sigmap: To
 overcome the drawback of the existing method of sequencing
 UNCALLED method was introduced. UNCALLED is efficient
@@ -335,6 +336,7 @@ given x4.4 speed and 11.49% more accuracy than the Uncalled
 method; not only that, it gave a higher F1 score. This research
 concludes that this approach can correctly map gnome size >
 100Mbp.
+
 3) Nanopore Selective Sequencing using Deep Learning:
 Deep Learning is a part of Machine Learning. It is based
 on Artificial Intelligence(AI) and Neural Networks. It is a
@@ -376,6 +378,7 @@ molecules are getting sequenced. This research shows that the
 Deep Learning approach can be used for real-time selective
 sequencing. It will give higher accuracy in analysing raw
 signals.
+
 4) Readfish enables targeted nanopore sequencing of
 gigabase-sized genomes: Nanopore selective sequencing en-
 ables selective sequence of specific gnomes by reversing
@@ -390,6 +393,7 @@ unnecessary as the methods use DTW. This method concludes
 that base-calling using GPUs can be used for real-time nu-
 cleotide data steaming. This research provided the ‘Readfish’
 toolkit for selective sequencing of gigabase-sized gnomes.
+
 5) Nanopore Selective Sequencing using DTW: Unlike
 other traditional sequencing methods, ONT sequencing offers
 selective sequencing, which enables a selection of only a
@@ -460,20 +464,24 @@ some tasks since they are made to process massive volumes
 of data in parallel. This is especially helpful in sectors like
 machine learning, where processing huge data sets quickly is
 required.
+
 2) Memory Bandwidth: GPUs can access and process large
 amounts of data quickly because they typically have substan-
 tially more memory bandwidth than CPUs. This is crucial
 for applications that analyse real-time streaming data or use
 massive data collections.
+
 3) Cost-effectiveness: In some cases, GPUs can be more
 economical than CPUs for certain computations. In data cen-
 tres and other high-performance computing environments, for
 instance, GPUs can carry out some machine learning tasks
 quicker and with less power than CPUs, saving money.
+
 4) Specialised Hardware: GPUs are designed with spe-
 cialised hardware to accelerate certain types of computations,
 such as matrix operations, which are common in machine
 learning and other data-intensive applications.
+
 5) Energy efficiency: GPUs can process data in parallel,
 making them more energy-efficient than CPUs for some tasks.
 As a result, data centres and other high-performance comput-
@@ -492,22 +500,27 @@ Some of the most common types of GPUs are as follows:
 consumer-level laptops and desktops, are built into the CPU.
 Web browsing and video playback are just a couple of the core
 graphics processing activities that they are made to handle.
+
 2) Dedicated GPUs: These standalone GPUs are made for
 more demanding graphics processing applications like gaming,
 video editing, and 3D rendering. Dedicated GPUs range from
 entry-level models to top-of-the-line gaming and workstation
 GPUs, with prices and performance levels to match.
+
 3) Datacenter GPUs: These are high-performance GPUs
 for large-scale computing environments like data centres. They
 are optimized for data-intensive applications like machine
 learning, scientific computing, etc.
+
 4) Mobile GPUs: These are designed for mobile devices
 like smartphones and tablets. They are optimised for low
 power consumption and are typically less powerful than ded-
 icated or data centre GPUs.
+
 5) Workstation GPUs: These are high-performance GPUs
 designed for professional workstations such as 3D modelling,
 animation, and scientific visualisation.
+
 6) Cloud GPUs: These GPUs are accessible via cloud
 computing services, giving consumers instant access to high-
 performance GPU computing resources. Machine learning,
@@ -532,12 +545,14 @@ product lines:
 graphics-intensive software like games. GeForce GPUs come
 in various performance configurations, from entry-level to top-
 of-the-line gaming GPUs.
+
 2) Quadro: These are workstation-grade GPUs from
 NVIDIA intended for use in professional workstations for
 activities including 3D modelling, animation, and scientific vi-
 sualization. Quadro GPUs have capabilities like ECC memory
 and support for multiple screens designed for great perfor-
 mance and dependability.
+
 3) Tesla: These NVIDIA GPUs are intended for large-scale
 environments like machine learning and scientific computing.
 These are data centre-level GPUs. Tesla GPUs are equipped
@@ -604,26 +619,31 @@ implementation specifics. They are listed below:
 ming is allocating memory on the GPU using the CUDA
 runtime API. This entails building device memory pointers
 that can be used to send data between the CPU and GPU.
+
 2) Transfer data: Transferring data from the CPU to the
 GPU is the next step after allocating memory to the GPU.
 The CUDA runtime API functions cudaMemcpy or cudaMem-
 cpyAsync can be used for this.
+
 3) Tesla: Launch kernels: Kernels are quick, highly paral-
 lelized operations that can run simultaneously on the GPU.
 Programmers must first define the kernel function and its
 execution parameters, including the number of threads and
 blocks to be launched, before they may launch a kernel in
 CUDA.
+
 4) Data processing: After the kernel has been started, each
 thread concurrently runs the kernel function on a distinct
 section of the data. The kernel code can be optimized for
 maximum efficiency using CUDA-specific features like shared
 memory and atomic operations.
+
 5) Transfer results: Results must be returned to the CPU for
 additional processing or storage when the kernel has finished
 processing the data. Like the data transmission stage, this
 can be accomplished using the cudaMemcpy or cudaMem-
 cpyAsync routines.
+
 6) Free memory: Using the cudaFree function of the CUDA
 runtime API, the programmer must finally free the memory
 allocated to the GPU.
