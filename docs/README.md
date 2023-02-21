@@ -656,9 +656,91 @@ data dependencies, thread synchronization, and memory access
 patterns.
 
 ### Existing Code
+
+The existing code base was written in C language, which could extract the signal data from standard file format, preprocess them and compare them with the reference signal. Existing code ran in the CPU, and no parallel programming techniques were used. In the code base, the whole process was divided into several parts. Those were read the signal data from the standardised file format. The next program would normalise the signal data (preprocessing) to match it with reference data and check its validity. After that signal would be converted into a set of floating point numbers. Also, if the reference signals were a sequence of nucleotides, they would be converted into a signal domain because both read data and reference should be in the same domain. Next, reference signals would be matched with read signals. This step divides read signals into smaller parts, and the subsequence dtw score is calculated to identify the optimal match. In the whole process, this would consume most of the processing time and computing power, and also, in this project, we were only considering this part. Since this part took most of the processing time, we identified the response functions for that, and our goal was to reduce the processing time. 
+
+In the comparison process, there were a few biological details to consider, which were used in the comparing process. In DNA sequencing, we needed to compare the entire genome, but the entire genome had a huge amount of details and could not compare the entire genome directly. In that case, reference DNA genomes were separated into multiple chromosomes. If the genome is a book, chromosomes are like chapters. In the human genome, there are 23 chromosomes, and some viruses only have one chromosome. Since reference signals came as chromosomes, read data was needed to compare with each chromosome. It was decided that the optimal matching chromosome was the correct match for the given read. 
+
+When nanopore sequencers fetched the reads, it also came as multiple reads for the single genome. That is because genomes consisted of chromosomes, and those were very fragile. When the DNA came as a solution, it consisted of pieces of each chromosome. So sequencer randomly picked a sample which would be a part of any chromosome. Like this, it had several readings, each with a long sequence of floating point numbers. In practice, the first part of the read would remove (trimmed) because it was of no use; most of the time, it was inaccurate. Next, extract a portion of the read signal from each read (for example, 3000 samples from the read signal). Comparing  a whole read with reference would take unnecessary processing time, and the DTW algorithm did not give good results for the longer sequences. Also, each read-only needed to know which chromosome matches the most, and for that portion of a read signal is enough and no need for all the details in the read signal. After that portion of the reading would compare with all the chromosomes of the reference signal and repeat that for all the reading signals. A portion of the read signal was compared with each chromosome, and calculated the DTW score and found in the chromosome with a minimum score with the given portion, and it would decide that the read belonged to that chromosome. In the existing code, they used several nested for loops to achieve this process, which means there was potential to parallelise the process and reduce the running time.
+
+### Proposed Method
+
+As previously mentioned, the project only considered the part where the reference signal compares with the read signal. It was the most time-consuming part, and since there are a lot of nested loops in that function, there is a potential to optimise it using parallel computing techniques. Also, the algorithm-wise DTW is more of a sequentially running algorithm, and calculations depend on the previous values. Because of that, it is difficult to parallel do the calculations in DTW. In the research, we found that there were effective solutions and modifications for the algorithm, which increased the degree of the parallelism which were proposed by other researchers. 
+
+The growth of GPU performance in parallel processing has been significant over the past few decades, with several key advancements and innovations leading to a dramatic increase in computational power.
+  1) CUDA: In 2007, NVIDIA introduced CUDA, a parallel computing platform that allows developers to use NVIDIA GPUs for general-purpose computing. CUDA provides a          programming model enabling developers to write GPU code using familiar programming languages like C, C++, and Python.
+  2) GPGPU: General-purpose computing on graphics processing units (GPGPU) is a technique that uses the parallel processing power of GPUs for non-graphics                  applications. This technique has been around since the early 2000s but has gained popularity recently due to the increase in GPU performance.
+  
+Overall, the growth of GPU performance in parallel processing has been driven by a combination of hardware and software advancements, including the introduction of programmable GPUs, GPGPU, CUDA, Tensor Cores, and dedicated ray tracing hardware. These innovations have greatly expanded the possibilities for high-performance computing. In the proposed way, we planned to divide the calculation parallelly using GPU's computational power. 
+
+As previously mentioned, parallelising the DTW algorithm could reduce the processing time. The dynamic programming technique, on which the dynamic time warping algorithm is based, saves the previous computations' results in a matrix. The majority of matrix calculations can be parallelised to perform computations more quickly. Also, since DTW does not require sophisticated mathematical models, it is simple to divide the procedure into smaller calculations and boost efficiency. The computation of each iteration in the matrix depends on the outcome of the previous step, which restricts the algorithm's capacity to be parallelised. The degree of parallel ability in DTW can be increased in several ways. The DTW distance between two data points is represented by the cost matrix of the DTW in each cell. Each cell's calculation is based on the outcomes of the left, top, and top-left cells. For cell (i,j) in the matrix D, the value of D[i, j] depends on the values in D[i, j-1], D[i-1, j], D[i-1, j-1]. In that case, for any cell (i,j) in the matrix, all cells between (0,0) and (i,j) need to be computed before calculating the value of the position (i,j). This computation is carried out by the DTW method in either a row- or column order. Sequential computations are made for the cells in the same row or column. However, the diagonal cells don't share any info, which is the opposite of the former. As a result, simultaneous computations for diagonal sets of cells are possible. There is a data dependency between two adjacent diagonals. As a result, we could only calculate the data from one diagonal set at a time. The calculation is performed on the first cell in the closest diagonal line set and then updates the remaining cells. These diagonally positioned cells can be computed concurrently because they only depend on the first cell. After completing the diagonal set, proceed consecutively to the next one. Using this approach, data dependency is ensured, and reasonable parallelism can be attained.
+
 ### GPU Implementation
 
+As discussed before, GPU implementation consists of several stages. We will discuss each step and implementation details of implementing the DTW algorithm for GPU for Nanopore Selective Sequencing. 
+
+## Memory Allocation
+
+  The cudaMalloc() function is one of many the CUDA runtime API provides to allocate memory on the hardware. The cudaMalloc() function returns a reference to the         allocated memory after allocating a block of device memory of the requested size (in bytes).
+
+  cudaMalloc(void**Ptr, size_t size);
+
+  The first argument, Ptr, is a pointer to the device memory address that will be allocated. The second argument, size, is the number of bytes to allocate.
+
+  Data in the existing code consisted of complex structs. GPU can not access those data directly from the CPU memory. Because of that, data have to be converted to a     set of data arrays. Those arrays will be copied to the GPU memory in the next step. Before cudaMalloc(), all the complex arrays should be converted to simple           linear arrays. After that, for those arrays, CUDA memory will be allocated. Following is an example of coping to linear arrays. 
+
+   for i <-- no_of_signals {
+        len_raw_signal[i] <-- db->slow5_rec[i]->len_raw_signal;
+        et_n[i] <--  db->et[i].n;
+        qstart[i] <--  db->qstart[i];
+        qend[i] <--  db->qend[i];
+        qlen[i] <--  qend[i] - qstart[i];
+    }
+
+## Transfer data
+
+  The CUDA runtime API's cudaMemcpy() function frequently copies data between host and device memory.
+
+  cudaMemcpy(void* dst, const void* src, size_t count, cudaMemcpyKind kind);
+
+  The first argument, dst, is a pointer to the destination memory where data will be copied. 
+  The second argument, src, is a pointer to the source memory from where data will be copied. The third argument, count, specifies the number of bytes to be copied. 
+  The fourth argument, kind, specifies the direction of the copy and can take one of the following values:
+
+  cudaMemcpyHostToDevice: Copies data from the host memory to the device memory.
+  cudaMemcpyDeviceToHost: Copies data from the device memory to the host memory.
+
+  To copy data from the host to the device, you can use the cudaMemcpy() function with cudaMemcpyHostToDevice as the fourth argument. 
+
+
+  In this step, all the arrays are copied to the GPU memory, and now GPU can access those arrays and values. 
+
+
+## Process data
+
+  Once the above steps are completed, all the pointers to the arrays are passed to the CUDA kernel function, as shown below. It will execute the CUDA kernel and the     DTW algorithm in the GPU. 
+
+  dtw_single2<<<NUMBER_of_BLOCKS, SIZE_of_BLOCK>>>(args…)
+
+  In the GPU implementation, “SIZE_of_BLOCK” is can be changed as the requirements. With that change, “NUMBER_of_BLOCKS” will be changed. There are several               possibilities.
+    One BLOCK and the number of signals as the “SIZE_of_BLOCK.”
+    The number of signals as BLOCK clout and one signal per BLOCK. 
+    Variant amount of BLOCKs and signals per BLOCK
+
+## Transfer results
+
+  cudaMemcpy() function is used to copy the result into the CPU memory with the fourth argument as cudaMemcpyDeviceToHost. 
+
+## Free memory
+  The cudaFree() function is used to free memory previously allocated on the device using functions like cudaMalloc().
+
+  cudaFree(void* Ptr);
+
+The only argument is a pointer to the memory block to be freed. This function deallocates the memory block previously allocated with cudaMalloc()
+
+
 ## Results and Analysis
+
 
 ## Conclusion
 
