@@ -675,11 +675,11 @@ Overall, the growth of GPU performance in parallel processing has been driven by
 
 As previously mentioned, parallelising the DTW algorithm could reduce the processing time. The dynamic programming technique, on which the dynamic time warping algorithm is based, saves the previous computations' results in a matrix. The majority of matrix calculations can be parallelised to perform computations more quickly. Also, since DTW does not require sophisticated mathematical models, it is simple to divide the procedure into smaller calculations and boost efficiency. The computation of each iteration in the matrix depends on the outcome of the previous step, which restricts the algorithm's capacity to be parallelised. The degree of parallel ability in DTW can be increased in several ways. The DTW distance between two data points is represented by the cost matrix of the DTW in each cell. Each cell's calculation is based on the outcomes of the left, top, and top-left cells. For cell (i,j) in the matrix D, the value of D[i, j] depends on the values in D[i, j-1], D[i-1, j], D[i-1, j-1]. In that case, for any cell (i,j) in the matrix, all cells between (0,0) and (i,j) need to be computed before calculating the value of the position (i,j). This computation is carried out by the DTW method in either a row- or column order. Sequential computations are made for the cells in the same row or column. However, the diagonal cells don't share any info, which is the opposite of the former. As a result, simultaneous computations for diagonal sets of cells are possible. There is a data dependency between two adjacent diagonals. As a result, we could only calculate the data from one diagonal set at a time. The calculation is performed on the first cell in the closest diagonal line set and then updates the remaining cells. These diagonally positioned cells can be computed concurrently because they only depend on the first cell. After completing the diagonal set, proceed consecutively to the next one. Using this approach, data dependency is ensured, and reasonable parallelism can be attained.
 
-### GPU Implementation
+## GPU Implementation
 
 As discussed before, GPU implementation consists of several stages. We will discuss each step and implementation details of implementing the DTW algorithm for GPU for Nanopore Selective Sequencing. 
 
-## Memory Allocation
+### Memory Allocation
 
   The cudaMalloc() function is one of many the CUDA runtime API provides to allocate memory on the hardware. The cudaMalloc() function returns a reference to the         allocated memory after allocating a block of device memory of the requested size (in bytes).
 
@@ -690,14 +690,14 @@ As discussed before, GPU implementation consists of several stages. We will disc
   Data in the existing code consisted of complex structs. GPU can not access those data directly from the CPU memory. Because of that, data have to be converted to a     set of data arrays. Those arrays will be copied to the GPU memory in the next step. Before cudaMalloc(), all the complex arrays should be converted to simple           linear arrays. After that, for those arrays, CUDA memory will be allocated. Following is an example of coping to linear arrays. 
 
    for i <-- no_of_signals {
-        len_raw_signal[i] <-- db->slow5_rec[i]->len_raw_signal;
-        et_n[i] <--  db->et[i].n;
-        qstart[i] <--  db->qstart[i];
-        qend[i] <--  db->qend[i];
-        qlen[i] <--  qend[i] - qstart[i];
+       len_raw_signal[i] <-- db->slow5_rec[i]->len_raw_signal;
+       et_n[i] <--  db->et[i].n;
+       qstart[i] <--  db->qstart[i];
+       qend[i] <--  db->qend[i];
+       qlen[i] <--  qend[i] - qstart[i];
     }
 
-## Transfer data
+### Transfer data
 
   The CUDA runtime API's cudaMemcpy() function frequently copies data between host and device memory.
 
@@ -712,11 +712,10 @@ As discussed before, GPU implementation consists of several stages. We will disc
 
   To copy data from the host to the device, you can use the cudaMemcpy() function with cudaMemcpyHostToDevice as the fourth argument. 
 
-
   In this step, all the arrays are copied to the GPU memory, and now GPU can access those arrays and values. 
 
 
-## Process data
+### Process data
 
   Once the above steps are completed, all the pointers to the arrays are passed to the CUDA kernel function, as shown below. It will execute the CUDA kernel and the     DTW algorithm in the GPU. 
 
@@ -727,16 +726,14 @@ As discussed before, GPU implementation consists of several stages. We will disc
     The number of signals as BLOCK clout and one signal per BLOCK. 
     Variant amount of BLOCKs and signals per BLOCK
 
-## Transfer results
+### Transfer results
 
   cudaMemcpy() function is used to copy the result into the CPU memory with the fourth argument as cudaMemcpyDeviceToHost. 
 
-## Free memory
+### Free memory
   The cudaFree() function is used to free memory previously allocated on the device using functions like cudaMalloc().
-
   cudaFree(void* Ptr);
-
-The only argument is a pointer to the memory block to be freed. This function deallocates the memory block previously allocated with cudaMalloc()
+  The only argument is a pointer to the memory block to be freed. This function deallocates the memory block previously allocated with cudaMalloc()
 
 
 ## Results and Analysis
