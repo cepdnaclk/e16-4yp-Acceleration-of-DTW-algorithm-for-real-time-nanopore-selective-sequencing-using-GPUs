@@ -679,7 +679,7 @@ As previously mentioned, parallelising the DTW algorithm could reduce the proces
 
 As discussed before, GPU implementation consists of several stages. We will discuss each step and implementation details of implementing the DTW algorithm for GPU for Nanopore Selective Sequencing. 
 
-### Memory Allocation
+#### Memory Allocation
 
   The cudaMalloc() function is one of many the CUDA runtime API provides to allocate memory on the hardware. The cudaMalloc() function returns a reference to the         allocated memory after allocating a block of device memory of the requested size (in bytes).
 
@@ -697,7 +697,7 @@ As discussed before, GPU implementation consists of several stages. We will disc
 	       qlen[i] <--  qend[i] - qstart[i];
 	    }
 
-### Transfer data
+#### Transfer data
 
   The CUDA runtime API's cudaMemcpy() function frequently copies data between host and device memory.
 
@@ -715,7 +715,7 @@ As discussed before, GPU implementation consists of several stages. We will disc
   In this step, all the arrays are copied to the GPU memory, and now GPU can access those arrays and values. 
 
 
-### Process data
+#### Process data
 
   Once the above steps are completed, all the pointers to the arrays are passed to the CUDA kernel function, as shown below. It will execute the CUDA kernel and the     DTW algorithm in the GPU. 
 
@@ -726,11 +726,11 @@ As discussed before, GPU implementation consists of several stages. We will disc
     The number of signals as BLOCK clout and one signal per BLOCK. 
     Variant amount of BLOCKs and signals per BLOCK
 
-### Transfer results
+#### Transfer results
 
   cudaMemcpy() function is used to copy the result into the CPU memory with the fourth argument as cudaMemcpyDeviceToHost. 
 
-### Free memory
+#### Free memory
   The cudaFree() function is used to free memory previously allocated on the device using functions like cudaMalloc().
   cudaFree(void* Ptr);
   The only argument is a pointer to the memory block to be freed. This function deallocates the memory block previously allocated with cudaMalloc()
@@ -739,12 +739,12 @@ As discussed before, GPU implementation consists of several stages. We will disc
 ## Results and Analysis
 
 This section demonstrates the DTW performances for Nanopore selective sequencing for different optimisation strategies with various hardware configurations. We used the following hardware platforms.
-  Platform 1:
-    CPU: Intel(R) Core(TM) i7-1065G7 CPU @ 1.30GHz
-    GPU: NVIDIA GeForce MX330 with 384 cores
-  Platform 2:
-    CPU: 
-    GPU: NVIDIA Tesla K40 with 2880 cores
+	Platform 1:
+	    CPU: Intel(R) Core(TM) i7-1065G7 CPU @ 1.30GHz
+	    GPU: NVIDIA GeForce MX330 with 384 cores
+	 Platform 2:
+	    CPU: 
+	    GPU: NVIDIA Tesla K40 with 2880 cores
 
 The CPU code described in the section on existing code runs exclusively in the CPU in a sequential manner. It does not use a parallel mechanism. The following table illustrates how long it takes to calculate DTW on each platform.
 
