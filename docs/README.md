@@ -689,13 +689,13 @@ As discussed before, GPU implementation consists of several stages. We will disc
 
   Data in the existing code consisted of complex structs. GPU can not access those data directly from the CPU memory. Because of that, data have to be converted to a     set of data arrays. Those arrays will be copied to the GPU memory in the next step. Before cudaMalloc(), all the complex arrays should be converted to simple           linear arrays. After that, for those arrays, CUDA memory will be allocated. Following is an example of coping to linear arrays. 
 
-   for i <-- no_of_signals {
-       len_raw_signal[i] <-- db->slow5_rec[i]->len_raw_signal;
-       et_n[i] <--  db->et[i].n;
-       qstart[i] <--  db->qstart[i];
-       qend[i] <--  db->qend[i];
-       qlen[i] <--  qend[i] - qstart[i];
-    }
+	   for i <-- no_of_signals {
+	       len_raw_signal[i] <-- db->slow5_rec[i]->len_raw_signal;
+	       et_n[i] <--  db->et[i].n;
+	       qstart[i] <--  db->qstart[i];
+	       qend[i] <--  db->qend[i];
+	       qlen[i] <--  qend[i] - qstart[i];
+	    }
 
 ### Transfer data
 
