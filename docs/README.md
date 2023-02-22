@@ -790,7 +790,7 @@ As part of future work, the DTW calculation segment will be parallelised. Most o
 ## Publications
 [//]: # "Note: Uncomment each once you uploaded the files to the repository"
 
-<!-- 1. [Semester 7 report](./) -->
+1. [Semester 7 report](./review_paper.pdf)
 <!-- 2. [Semester 7 slides](./) -->
 <!-- 3. [Semester 8 report](./) -->
 <!-- 4. [Semester 8 slides](./) -->
